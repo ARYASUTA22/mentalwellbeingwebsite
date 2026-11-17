@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useTransition } from "react";
@@ -10,10 +11,10 @@ import { clsx } from "clsx";
 
 interface MetricField {
   key:
-    | "psychologicalSafety"
-    | "workloadBalance"
-    | "leadershipTrust"
-    | "environmentCalm";
+  | "psychologicalSafety"
+  | "workloadBalance"
+  | "leadershipTrust"
+  | "environmentCalm";
   label: string;
 }
 

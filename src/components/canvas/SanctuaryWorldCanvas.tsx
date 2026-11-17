@@ -6,7 +6,6 @@ import {
   createInitialPlayerState,
   getStationById,
   hitTestStation,
-  SCENERY_PROPS,
   updatePlayerPhysics,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -15,10 +14,11 @@ import {
   type ZoneId,
 } from "@/components/canvas/PhysicsController";
 import {
-  drawPlayerAvatar,
-  drawSceneryProp,
-  drawStationAndNpc,
-  drawWorldBackground,
+  drawClickTargetRing,
+  drawCozyNpcSprite,
+  drawMainCharacterSprite,
+  drawOakTreeForegroundOverhang,
+  drawZonePromptOverlay,
   type CanvasPalette,
 } from "@/components/canvas/SpriteAnimator";
 import { useHud } from "@/components/hud/HudProvider";
@@ -56,6 +56,46 @@ function readCanvasPalette(): CanvasPalette {
   };
 }
 
+/**
+ * Computes camera scale and clamped top-left camera origin so the (0,0)..(2400,1350)
+ * map background never pans into empty space on any viewport size.
+ */
+function getClampedCameraViewport(
+  camCenterX: number,
+  camCenterY: number,
+  viewW: number,
+  viewH: number
+) {
+  const scale = Math.max(1, viewW / WORLD_WIDTH, viewH / WORLD_HEIGHT);
+  const visibleWorldW = viewW / scale;
+  const visibleWorldH = viewH / scale;
+
+  const minCenterX = visibleWorldW / 2;
+  const maxCenterX = Math.max(minCenterX, WORLD_WIDTH - visibleWorldW / 2);
+  const minCenterY = visibleWorldH / 2;
+  const maxCenterY = Math.max(minCenterY, WORLD_HEIGHT - visibleWorldH / 2);
+
+  const clampedCenterX = Math.max(minCenterX, Math.min(maxCenterX, camCenterX));
+  const clampedCenterY = Math.max(minCenterY, Math.min(maxCenterY, camCenterY));
+
+  const camLeft = Math.max(
+    0,
+    Math.min(WORLD_WIDTH - visibleWorldW, clampedCenterX - visibleWorldW / 2)
+  );
+  const camTop = Math.max(
+    0,
+    Math.min(WORLD_HEIGHT - visibleWorldH, clampedCenterY - visibleWorldH / 2)
+  );
+
+  return {
+    scale,
+    camLeft,
+    camTop,
+    clampedCenterX,
+    clampedCenterY,
+  };
+}
+
 export function SanctuaryWorldCanvas({
   articles,
   quests,
@@ -66,9 +106,11 @@ export function SanctuaryWorldCanvas({
   const { cameraResetNonce } = useHud();
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const bgImageRef = useRef<HTMLImageElement | null>(null);
+  const charSheetRef = useRef<HTMLImageElement | null>(null);
   const paletteRef = useRef<CanvasPalette | null>(null);
   const playerRef = useRef<PlayerPhysicsState>(createInitialPlayerState());
-  const cameraRef = useRef<{ x: number; y: number }>({ x: 800, y: 565 });
+  const cameraRef = useRef<{ x: number; y: number }>({ x: 1035, y: 645 });
   const keysRef = useRef<Record<string, boolean>>({});
   const hoveredZoneRef = useRef<ZoneId | null>(null);
   const nearbyZoneRef = useRef<ZoneId | null>(null);
@@ -78,24 +120,36 @@ export function SanctuaryWorldCanvas({
   const [hoveredZone, setHoveredZone] = useState<ZoneId | null>(null);
   const [activeModalZone, setActiveModalZone] = useState<ZoneId | null>(null);
   const [minimapPos, setMinimapPos] = useState<{ x: number; y: number }>({
-    x: 800,
-    y: 565,
+    x: 1035,
+    y: 645,
   });
 
   useEffect(() => {
     activeModalRef.current = activeModalZone;
   }, [activeModalZone]);
 
+  // Preload /assets/map-background.png (2400x1350) and /assets/characters.png (74x104 grid) on mount
   useEffect(() => {
     paletteRef.current = readCanvasPalette();
+
+    const bgImg = new Image();
+    bgImg.src = "/assets/map-background.png";
+    bgImg.onload = () => {
+      bgImageRef.current = bgImg;
+    };
+
+    const charImg = new Image();
+    charImg.src = "/assets/characters.png";
+    charImg.onload = () => {
+      charSheetRef.current = charImg;
+    };
   }, []);
 
-  // Recenter camera & player when TopNavHud Recenter button is clicked
   useEffect(() => {
     if (cameraResetNonce > 0) {
       playerRef.current = createInitialPlayerState();
       setActiveModalZone(null);
-      setMinimapPos({ x: 800, y: 565 });
+      setMinimapPos({ x: 1035, y: 645 });
     }
   }, [cameraResetNonce]);
 
@@ -123,7 +177,6 @@ export function SanctuaryWorldCanvas({
     [handleOpenZone]
   );
 
-  // Keyboard movement + [E] interaction + [Esc] modal dismissal
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -165,7 +218,6 @@ export function SanctuaryWorldCanvas({
     };
   }, [handleOpenZone]);
 
-  // Main HTML5 <canvas> requestAnimationFrame game loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -174,15 +226,15 @@ export function SanctuaryWorldCanvas({
 
     let rafId = 0;
     let lastTimestamp = performance.now();
-    let minimapTick = 0;
+    let frameCount = 0;
+    let dpr = 1;
 
     const resizeCanvas = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.floor(window.innerWidth * dpr);
       canvas.height = Math.floor(window.innerHeight * dpr);
       canvas.style.width = `${window.innerWidth}px`;
       canvas.style.height = `${window.innerHeight}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
     resizeCanvas();
@@ -193,6 +245,7 @@ export function SanctuaryWorldCanvas({
       lastTimestamp = now;
       const dtRatio = elapsedMs / (1000 / 60);
       const timeSec = now * 0.001;
+      frameCount += 1;
 
       const palette = paletteRef.current ?? readCanvasPalette();
       paletteRef.current = palette;
@@ -215,15 +268,13 @@ export function SanctuaryWorldCanvas({
         setNearbyZone(detectedZone);
       }
 
-      minimapTick += 1;
-      if (minimapTick % 8 === 0) {
+      if (frameCount % 8 === 0) {
         setMinimapPos({
           x: playerRef.current.x,
           y: playerRef.current.y,
         });
       }
 
-      // Smooth camera lerp (0.08) with velocity look-ahead offset per brand_guidelines.md
       const viewW = window.innerWidth;
       const viewH = window.innerHeight;
       const lookAheadX = playerRef.current.vx * 14;
@@ -232,70 +283,92 @@ export function SanctuaryWorldCanvas({
       const desiredCamY = playerRef.current.y + lookAheadY;
 
       const lerpAlpha = 1 - Math.pow(1 - 0.08, dtRatio);
-      cameraRef.current.x += (desiredCamX - cameraRef.current.x) * lerpAlpha;
-      cameraRef.current.y += (desiredCamY - cameraRef.current.y) * lerpAlpha;
+      const nextCamX =
+        cameraRef.current.x + (desiredCamX - cameraRef.current.x) * lerpAlpha;
+      const nextCamY =
+        cameraRef.current.y + (desiredCamY - cameraRef.current.y) * lerpAlpha;
 
-      const halfW = viewW / 2;
-      const halfH = viewH / 2;
-      const camLeft =
-        viewW >= WORLD_WIDTH
-          ? -(viewW - WORLD_WIDTH) / 2
-          : Math.max(0, Math.min(WORLD_WIDTH - viewW, cameraRef.current.x - halfW));
-      const camTop =
-        viewH >= WORLD_HEIGHT
-          ? -(viewH - WORLD_HEIGHT) / 2
-          : Math.max(0, Math.min(WORLD_HEIGHT - viewH, cameraRef.current.y - halfH));
+      const { scale, camLeft, camTop, clampedCenterX, clampedCenterY } =
+        getClampedCameraViewport(nextCamX, nextCamY, viewW, viewH);
 
+      cameraRef.current.x = clampedCenterX;
+      cameraRef.current.y = clampedCenterY;
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, viewW, viewH);
       ctx.fillStyle = palette.canvasMeadow;
       ctx.fillRect(0, 0, viewW, viewH);
 
       ctx.save();
+      ctx.scale(scale, scale);
       ctx.translate(-camLeft, -camTop);
 
-      drawWorldBackground(
+      // 1. Base 2D Map Background (/assets/map-background.png at 0,0 -> 2400x1350)
+      if (bgImageRef.current) {
+        ctx.drawImage(bgImageRef.current, 0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+      }
+
+      // 2. Click-to-move destination ring on the ground
+      drawClickTargetRing(
         ctx,
+        playerRef.current.clickTarget,
         palette,
-        timeSec,
-        WORLD_WIDTH,
-        WORLD_HEIGHT,
-        playerRef.current.clickTarget
+        timeSec
       );
 
-      // Y-Sorted Render Queue (Stations, Scenery Props, and Player Avatar)
-      type RenderItem = { footY: number; draw: () => void };
-      const renderQueue: RenderItem[] = [];
+      // 3. Y-Sorted Render Queue: Main Character, 3 Cozy NPCs, and Ancient Oak Tree Foreground Overhang
+      type RenderLayer = { footY: number; draw: () => void };
+      const ySortedQueue: RenderLayer[] = [];
 
-      for (const station of ZONE_STATIONS) {
-        renderQueue.push({
-          footY: station.footY,
+      ZONE_STATIONS.forEach((station, idx) => {
+        ySortedQueue.push({
+          footY: station.npcY,
           draw: () =>
-            drawStationAndNpc(
+            drawCozyNpcSprite(
               ctx,
+              charSheetRef.current,
               station,
+              playerRef.current,
               palette,
-              timeSec,
-              nearbyZoneRef.current === station.id,
-              hoveredZoneRef.current === station.id
+              frameCount,
+              idx
             ),
         });
-      }
-
-      for (const prop of SCENERY_PROPS) {
-        renderQueue.push({
-          footY: prop.footY,
-          draw: () => drawSceneryProp(ctx, prop, palette, timeSec),
-        });
-      }
-
-      renderQueue.push({
-        footY: playerRef.current.y + 8,
-        draw: () => drawPlayerAvatar(ctx, playerRef.current, palette, timeSec),
       });
 
-      renderQueue.sort((a, b) => a.footY - b.footY);
-      for (const item of renderQueue) {
-        item.draw();
+      ySortedQueue.push({
+        footY: playerRef.current.y,
+        draw: () =>
+          drawMainCharacterSprite(
+            ctx,
+            charSheetRef.current,
+            playerRef.current,
+            palette,
+            frameCount
+          ),
+      });
+
+      // Foreground overhang for the Ancient Oak Tree branches (bottom-center around X:1200..1860, Y:750, baseline Y:910)
+      ySortedQueue.push({
+        footY: 910,
+        draw: () => drawOakTreeForegroundOverhang(ctx, bgImageRef.current),
+      });
+
+      ySortedQueue.sort((a, b) => a.footY - b.footY);
+      for (const layer of ySortedQueue) {
+        layer.draw();
+      }
+
+      // 4. Floating UI nameplates & bouncing [E] keycap prompts on top
+      for (const station of ZONE_STATIONS) {
+        drawZonePromptOverlay(
+          ctx,
+          station,
+          palette,
+          timeSec,
+          nearbyZoneRef.current === station.id,
+          hoveredZoneRef.current === station.id
+        );
       }
 
       ctx.restore();
@@ -312,23 +385,15 @@ export function SanctuaryWorldCanvas({
   const toWorldCoords = (clientX: number, clientY: number) => {
     const viewW = window.innerWidth;
     const viewH = window.innerHeight;
-    const camLeft =
-      viewW >= WORLD_WIDTH
-        ? -(viewW - WORLD_WIDTH) / 2
-        : Math.max(
-            0,
-            Math.min(WORLD_WIDTH - viewW, cameraRef.current.x - viewW / 2)
-          );
-    const camTop =
-      viewH >= WORLD_HEIGHT
-        ? -(viewH - WORLD_HEIGHT) / 2
-        : Math.max(
-            0,
-            Math.min(WORLD_HEIGHT - viewH, cameraRef.current.y - viewH / 2)
-          );
+    const { scale, camLeft, camTop } = getClampedCameraViewport(
+      cameraRef.current.x,
+      cameraRef.current.y,
+      viewW,
+      viewH
+    );
     return {
-      x: clientX + camLeft,
-      y: clientY + camTop,
+      x: clientX / scale + camLeft,
+      y: clientY / scale + camTop,
     };
   };
 
@@ -352,8 +417,8 @@ export function SanctuaryWorldCanvas({
       return;
     }
     playerRef.current.clickTarget = {
-      x: Math.max(75, Math.min(WORLD_WIDTH - 75, world.x)),
-      y: Math.max(75, Math.min(WORLD_HEIGHT - 75, world.y)),
+      x: Math.max(48, Math.min(WORLD_WIDTH - 48, world.x)),
+      y: Math.max(48, Math.min(WORLD_HEIGHT - 48, world.y)),
     };
   };
 
@@ -379,7 +444,7 @@ export function SanctuaryWorldCanvas({
         />
       </div>
 
-      {/* Bouncing HUD [E] Prompt when near a station */}
+      {/* Bouncing HUD [E] Prompt when near a zone */}
       <AnimatePresence>
         {!activeModalZone && nearbyStation && (
           <motion.div
@@ -399,8 +464,8 @@ export function SanctuaryWorldCanvas({
                 E
               </kbd>
               <span className="font-hand text-xl leading-none">
-                Press [E] to enter {nearbyStation.title} (
-                {nearbyStation.npcName})
+                Press [E] to talk to {nearbyStation.npcName} ·{" "}
+                {nearbyStation.title}
               </span>
             </button>
           </motion.div>

@@ -1,4 +1,5 @@
 export type ZoneId = "psychology" | "self-care" | "employee-voice";
+export type FacingDirection = "down" | "right" | "left" | "up";
 
 export interface ZoneStation {
   id: ZoneId;
@@ -6,24 +7,33 @@ export interface ZoneStation {
   shortLabel: string;
   npcName: string;
   npcRole: string;
+  /** NPC placement coordinates on the 2400x1350 map */
+  npcX: number;
+  npcY: number;
+  /** Center X/Y of solid building collider on the 2400x1350 map */
   x: number;
   y: number;
+  /** Y-sort baseline for building roof overhang */
   footY: number;
+  /** Floating [E] prompt coordinates */
+  promptX: number;
+  promptY: number;
+  /** Solid AABB collision dimensions for the building core */
   width: number;
   height: number;
-  visualHeight: number;
+  /** Walk-up / fast-travel welcome mat coordinates */
   approachX: number;
   approachY: number;
+  /** Proximity detection radius around the NPC & station */
   promptRadius: number;
 }
 
-export interface SceneryProp {
+export interface ObstacleCollider {
   id: string;
-  kind: "tree" | "bush" | "lamp";
   x: number;
   y: number;
-  footY: number;
-  scale: number;
+  width: number;
+  height: number;
 }
 
 export interface PlayerPhysicsState {
@@ -31,7 +41,7 @@ export interface PlayerPhysicsState {
   y: number;
   vx: number;
   vy: number;
-  facing: "down" | "up" | "left" | "right";
+  facing: FacingDirection;
   clickTarget: { x: number; y: number } | null;
 }
 
@@ -43,15 +53,27 @@ export interface PhysicsInput {
   locked: boolean;
 }
 
-export const WORLD_WIDTH = 1600;
-export const WORLD_HEIGHT = 1100;
-export const WORLD_PADDING = 75;
+// Exact dimensions of /assets/map-background.png
+export const WORLD_WIDTH = 2400;
+export const WORLD_HEIGHT = 1350;
+export const WORLD_PADDING = 48;
 
-// Matches brand_guidelines.md: acceleration 0.6px/frame^2, friction 0.85
+// Sprite sheet frame dimensions in /assets/characters.png
+export const SPRITE_FRAME_W = 74;
+export const SPRITE_FRAME_H = 104;
+
+// Physics constants per brand_guidelines.md
 export const PLAYER_ACCEL = 0.6;
 export const PLAYER_FRICTION = 0.85;
-export const PLAYER_RADIUS = 20;
+export const PLAYER_RADIUS = 18;
+export const NPC_RADIUS = 18;
 
+/**
+ * Zones & Cozy NPC placements on the 2400x1350 map:
+ * - NPC 1: Near Cozy Library Nook (X: 620, Y: 350)
+ * - NPC 2: Next to the Greenhouse Path (X: 1530, Y: 280)
+ * - NPC 3: At Post Office (X: 1330, Y: 1040)
+ */
 export const ZONE_STATIONS: ZoneStation[] = [
   {
     id: "psychology",
@@ -59,15 +81,18 @@ export const ZONE_STATIONS: ZoneStation[] = [
     shortLabel: "Library Nook",
     npcName: "Dr. Maya Lin",
     npcRole: "Workplace Psychologist",
-    x: 420,
-    y: 355,
-    footY: 425,
-    width: 220,
-    height: 135,
-    visualHeight: 165,
-    approachX: 420,
-    approachY: 475,
-    promptRadius: 145,
+    npcX: 620,
+    npcY: 350,
+    x: 455,
+    y: 235,
+    footY: 340,
+    promptX: 620,
+    promptY: 215,
+    width: 320,
+    height: 150,
+    approachX: 665,
+    approachY: 425,
+    promptRadius: 240,
   },
   {
     id: "self-care",
@@ -75,15 +100,18 @@ export const ZONE_STATIONS: ZoneStation[] = [
     shortLabel: "Zen Greenhouse",
     npcName: "Sora Takahashi",
     npcRole: "Wellness Coach",
-    x: 1180,
-    y: 365,
-    footY: 435,
-    width: 230,
-    height: 135,
-    visualHeight: 170,
-    approachX: 1180,
-    approachY: 485,
-    promptRadius: 150,
+    npcX: 1530,
+    npcY: 280,
+    x: 2015,
+    y: 335,
+    footY: 450,
+    promptX: 1530,
+    promptY: 145,
+    width: 390,
+    height: 250,
+    approachX: 1530,
+    approachY: 365,
+    promptRadius: 260,
   },
   {
     id: "employee-voice",
@@ -91,36 +119,30 @@ export const ZONE_STATIONS: ZoneStation[] = [
     shortLabel: "Post Office",
     npcName: "Devon Park",
     npcRole: "Anonymous Ombuds",
-    x: 800,
-    y: 835,
-    footY: 905,
-    width: 225,
-    height: 130,
-    visualHeight: 175,
-    approachX: 800,
-    approachY: 715,
-    promptRadius: 145,
+    npcX: 1330,
+    npcY: 1040,
+    x: 1560,
+    y: 1030,
+    footY: 1120,
+    promptX: 1330,
+    promptY: 905,
+    width: 280,
+    height: 190,
+    approachX: 1265,
+    approachY: 1110,
+    promptRadius: 250,
   },
 ];
 
-export const SCENERY_PROPS: SceneryProp[] = [
-  { id: "tree-nw", kind: "tree", x: 185, y: 245, footY: 265, scale: 1.05 },
-  { id: "tree-ne", kind: "tree", x: 1415, y: 255, footY: 275, scale: 1.1 },
-  { id: "tree-sw", kind: "tree", x: 220, y: 860, footY: 880, scale: 1.0 },
-  { id: "tree-se", kind: "tree", x: 1390, y: 865, footY: 885, scale: 1.05 },
-  { id: "bush-1", kind: "bush", x: 640, y: 275, footY: 290, scale: 0.95 },
-  { id: "bush-2", kind: "bush", x: 960, y: 280, footY: 295, scale: 1.0 },
-  { id: "bush-3", kind: "bush", x: 540, y: 810, footY: 825, scale: 0.9 },
-  { id: "bush-4", kind: "bush", x: 1060, y: 815, footY: 830, scale: 0.95 },
-  { id: "lamp-1", kind: "lamp", x: 575, y: 470, footY: 482, scale: 1 },
-  { id: "lamp-2", kind: "lamp", x: 1025, y: 470, footY: 482, scale: 1 },
-  { id: "lamp-3", kind: "lamp", x: 655, y: 740, footY: 752, scale: 1 },
+export const MAP_OBSTACLES: ObstacleCollider[] = [
+  { id: "central-fountain", x: 1215, y: 585, width: 165, height: 135 },
+  { id: "park-bench", x: 1320, y: 430, width: 140, height: 65 },
 ];
 
 export function createInitialPlayerState(): PlayerPhysicsState {
   return {
-    x: 800,
-    y: 565,
+    x: 1035,
+    y: 645,
     vx: 0,
     vy: 0,
     facing: "down",
@@ -128,42 +150,73 @@ export function createInitialPlayerState(): PlayerPhysicsState {
   };
 }
 
-function overlapsStationAABB(
+function overlapsBox(
   px: number,
   py: number,
   radius: number,
-  station: ZoneStation
+  cx: number,
+  cy: number,
+  width: number,
+  height: number
 ): boolean {
-  const halfW = station.width / 2 + radius;
-  const halfH = station.height / 2 + radius;
-  return (
-    Math.abs(px - station.x) < halfW && Math.abs(py - station.y) < halfH
-  );
+  const halfW = width / 2 + radius;
+  const halfH = height / 2 + radius;
+  return Math.abs(px - cx) < halfW && Math.abs(py - cy) < halfH;
+}
+
+function hitsAnyCollider(px: number, py: number, radius: number): boolean {
+  for (const station of ZONE_STATIONS) {
+    if (
+      overlapsBox(
+        px,
+        py,
+        radius,
+        station.x,
+        station.y,
+        station.width,
+        station.height
+      )
+    ) {
+      return true;
+    }
+    // Prevent walking directly through NPC body
+    if (Math.hypot(px - station.npcX, py - station.npcY) < radius + NPC_RADIUS) {
+      return true;
+    }
+  }
+  for (const obs of MAP_OBSTACLES) {
+    if (overlapsBox(px, py, radius, obs.x, obs.y, obs.width, obs.height)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function getStationById(zoneId: ZoneId): ZoneStation {
-  return (
-    ZONE_STATIONS.find((s) => s.id === zoneId) ?? ZONE_STATIONS[0]
-  );
+  return ZONE_STATIONS.find((s) => s.id === zoneId) ?? ZONE_STATIONS[0];
 }
 
 /**
- * Hit-tests a world coordinate against each station's visual + footprint bounding box.
+ * Hit-tests a world click coordinate against each zone's building or NPC sprite.
  */
 export function hitTestStation(
   worldX: number,
   worldY: number
 ): ZoneStation | null {
   for (const station of ZONE_STATIONS) {
-    const left = station.x - station.width / 2 - 18;
-    const right = station.x + station.width / 2 + 18;
-    const top = station.y - station.visualHeight / 2 - 20;
-    const bottom = station.footY + 28;
+    const nearNpc =
+      Math.abs(worldX - station.npcX) <= 55 &&
+      worldY >= station.npcY - 105 &&
+      worldY <= station.npcY + 25;
+
+    const left = Math.min(station.x - station.width / 2 - 40, station.npcX - 65);
+    const right = Math.max(station.x + station.width / 2 + 40, station.npcX + 65);
+    const top = Math.min(station.y - station.height / 2 - 60, station.npcY - 110);
+    const bottom = Math.max(station.y + station.height / 2 + 60, station.npcY + 35);
+
     if (
-      worldX >= left &&
-      worldX <= right &&
-      worldY >= top &&
-      worldY <= bottom
+      nearNpc ||
+      (worldX >= left && worldX <= right && worldY >= top && worldY <= bottom)
     ) {
       return station;
     }
@@ -172,7 +225,29 @@ export function hitTestStation(
 }
 
 /**
- * Steps player acceleration, friction damping (0.85), AABB collision, and proximity detection.
+ * Computes which direction an NPC should face so they turn toward the player when nearby.
+ */
+export function computeNpcFacing(
+  npcX: number,
+  npcY: number,
+  playerX: number,
+  playerY: number,
+  turnRadius = 280
+): FacingDirection {
+  const dx = playerX - npcX;
+  const dy = playerY - npcY;
+  const dist = Math.hypot(dx, dy);
+  if (dist > turnRadius) {
+    return "down";
+  }
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return dx > 0 ? "right" : "left";
+  }
+  return dy > 0 ? "down" : "up";
+}
+
+/**
+ * Steps player acceleration (0.6), friction damping (0.85), AABB collision, and proximity detection.
  */
 export function updatePlayerPhysics(
   state: PlayerPhysicsState,
@@ -228,10 +303,7 @@ export function updatePlayerPhysics(
     WORLD_PADDING,
     Math.min(WORLD_WIDTH - WORLD_PADDING, state.x + state.vx * dtRatio)
   );
-  const hitsX = ZONE_STATIONS.some((s) =>
-    overlapsStationAABB(nextX, state.y, PLAYER_RADIUS, s)
-  );
-  if (!hitsX) {
+  if (!hitsAnyCollider(nextX, state.y, PLAYER_RADIUS)) {
     state.x = nextX;
   } else {
     state.vx = 0;
@@ -241,26 +313,24 @@ export function updatePlayerPhysics(
     WORLD_PADDING,
     Math.min(WORLD_HEIGHT - WORLD_PADDING, state.y + state.vy * dtRatio)
   );
-  const hitsY = ZONE_STATIONS.some((s) =>
-    overlapsStationAABB(state.x, nextY, PLAYER_RADIUS, s)
-  );
-  if (!hitsY) {
+  if (!hitsAnyCollider(state.x, nextY, PLAYER_RADIUS)) {
     state.y = nextY;
   } else {
     state.vy = 0;
   }
 
-  // Proximity detection to each station's front welcome mat
+  // Proximity detection to each zone's NPC or welcome mat
   let closestZone: ZoneId | null = null;
   let closestDist = Infinity;
 
   for (const station of ZONE_STATIONS) {
-    const d = Math.hypot(
+    const distNpc = Math.hypot(state.x - station.npcX, state.y - station.npcY);
+    const distApproach = Math.hypot(
       state.x - station.approachX,
       state.y - station.approachY
     );
-    const dCenter = Math.hypot(state.x - station.x, state.y - station.y);
-    const effectiveDist = Math.min(d, dCenter - 25);
+    const effectiveDist = Math.min(distNpc, distApproach);
+
     if (effectiveDist <= station.promptRadius && effectiveDist < closestDist) {
       closestDist = effectiveDist;
       closestZone = station.id;

@@ -56,7 +56,10 @@ export function SignpostMinimap({
       </div>
 
       {/* Compact live meadow radar */}
-      <div className="relative mb-2.5 h-20 w-full overflow-hidden rounded-xl border-2 border-ink-charcoal bg-canvas-meadow">
+      <div
+        style={{ backgroundImage: "url('/assets/map-background.png')" }}
+        className="relative mb-2.5 h-20 w-full overflow-hidden rounded-xl border-2 border-ink-charcoal bg-canvas-meadow bg-cover bg-center"
+      >
         {ZONE_STATIONS.map((station) => (
           <button
             key={station.id}
@@ -64,8 +67,8 @@ export function SignpostMinimap({
             title={`Fast-travel to ${station.title}`}
             onClick={() => onFastTravel(station.id)}
             style={{
-              left: `${(station.x / WORLD_WIDTH) * 100}%`,
-              top: `${(station.y / WORLD_HEIGHT) * 100}%`,
+              left: `${(station.npcX / WORLD_WIDTH) * 100}%`,
+              top: `${(station.npcY / WORLD_HEIGHT) * 100}%`,
             }}
             className={clsx(
               "absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-ink-charcoal transition-transform hover:scale-125",
