@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "monogram";
+  src: url("/monogram.ttf") format("truetype");
+  font-display: swap;
+}
+
+:root {
+  /* Brand Guidelines — Cozy Hand-Drawn Indie Cartoon Tokens */
+  --bg-paper-cream: #FDFBF7;
+  --bg-paper-aged: #F4EFE6;
+  --bg-canvas-meadow: #E9EDC9;
+  --bg-wood-warm: #D4A373;
+  --ink-charcoal: #2C221E;
+  --ink-muted: #6B5B53;
+  --zone-psychology: #F2CC8F;
+  --zone-selfcare: #A3B18A;
+  --zone-voice: #E07A5F;
+  --shadow-ambient: rgba(44, 34, 30, 0.22);
+  --border-ink: 3px solid #2C221E;
+  --shadow-cartoon: 6px 6px 0px #2C221E;
+  --shadow-cartoon-sm: 3px 3px 0px #2C221E;
+
+  /* Semantic Aliases for Canvas & Feature Compatibility */
+  --bg-world-void: var(--bg-canvas-meadow);
+  --bg-hud-surface: var(--bg-paper-cream);
+  --bg-hud-elevated: var(--bg-paper-aged);
+  --text-primary: var(--ink-charcoal);
+  --text-secondary: var(--ink-muted);
+  --accent-psych: var(--zone-psychology);
+  --accent-selfcare: var(--zone-selfcare);
+  --accent-voice: var(--zone-voice);
+  --status-warning: #E9B44C;
+  --status-danger: #D1495B;
+  --border-hud: rgba(44, 34, 30, 0.26);
+  --glow-psych: var(--shadow-cartoon-sm);
+  --glow-selfcare: var(--shadow-cartoon-sm);
+  --glow-voice: var(--shadow-cartoon-sm);
+  --cartoon-ink: var(--ink-charcoal);
+  --room-wood: var(--bg-wood-warm);
+  --room-wood-plank: #B88454;
+  --room-wall: var(--bg-paper-cream);
+  --room-wall-trim: #8C583A;
+  --room-rug-west: var(--zone-voice);
+  --room-rug-east: var(--zone-selfcare);
+  --cartoon-shadow: var(--shadow-cartoon-sm);
+  --cartoon-shadow-lg: var(--shadow-cartoon);
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--bg-canvas-meadow);
+    color: var(--ink-charcoal);
+    min-height: 100%;
+    overflow-x: hidden;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-fredoka), var(--font-nunito), sans-serif;
+  }
+
+  ::selection {
+    background-color: var(--zone-psychology);
+    color: var(--ink-charcoal);
+  }
+}
+
+@layer components {
+  .cartoon-panel,
+  .hud-panel {
+    background-color: var(--bg-paper-cream);
+    color: var(--ink-charcoal);
+    border: var(--border-ink);
+    box-shadow: var(--shadow-cartoon);
+  }
+
+  .cartoon-panel-aged,
+  .hud-panel-elevated,
+  .rpg-textbox {
+    background-color: var(--bg-paper-aged);
+    color: var(--ink-charcoal);
+    border: var(--border-ink);
+    box-shadow: var(--shadow-cartoon);
+  }
+
+  .cartoon-btn {
+    border: var(--border-ink);
+    box-shadow: var(--shadow-cartoon-sm);
+    transition: transform 120ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 150ms ease, box-shadow 120ms ease;
+  }
+
+  .cartoon-btn:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+  }
+
+  .cartoon-btn:active:not(:disabled) {
+    transform: translate(3px, 3px);
+    box-shadow: 0px 0px 0px var(--ink-charcoal);
+  }
+
+  .tactile-press {
+    transition: transform 120ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 150ms ease, border-color 150ms ease, box-shadow 120ms ease;
+  }
+
+  .tactile-press:active:not(:disabled) {
+    transform: translate(2px, 2px);
+  }
+
+  .font-monogram {
+    font-family: "monogram", var(--font-gaegu), monospace;
+  }
+
+  .line-boil {
+    filter: url(#hand-drawn-boil);
+  }
+}
+
+/* Warm sketchbook scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-paper-aged);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ink-muted);
+  border-radius: 9999px;
+  border: 2px solid var(--bg-paper-aged);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-charcoal);
+}

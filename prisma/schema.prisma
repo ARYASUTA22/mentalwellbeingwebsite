@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Article {
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  title          String
+  summary        String
+  content        String   @db.Text
+  category       String
+  readingTimeMin Int      @default(4)
+  coverPublicId  String?
+  tags           String[]
+  isFeatured     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([category])
+}
+
+model DailyQuest {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  xpReward    Int       @default(25)
+  zone        String    @default("SELF_CARE")
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  questDate   DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+
+  @@index([questDate])
+}
+
+model SelfCareSession {
+  id          String   @id @default(cuid())
+  sessionType String
+  moodLabel   String?
+  stressLevel Int?
+  durationSec Int      @default(0)
+  cyclesCount Int      @default(0)
+  aiTip       String?  @db.Text
+  xpEarned    Int      @default(15)
+  createdAt   DateTime @default(now())
+
+  @@index([sessionType, createdAt])
+}
+
+model VoiceSubmission {
+  id               String   @id @default(cuid())
+  submissionType   String
+  category         String
+  originalRedacted Boolean  @default(true)
+  scrubbedContent  String   @db.Text
+  urgency          String   @default("MEDIUM")
+  sentiment        String   @default("CONSTRUCTIVE")
+  redactedEntities String[]
+  upvotes          Int      @default(0)
+  status           String   @default("SUBMITTED")
+  createdAt        DateTime @default(now())
+
+  @@index([submissionType, createdAt])
+}
+
+model ComfortEvaluation {
+  id                  String   @id @default(cuid())
+  psychologicalSafety Int
+  workloadBalance     Int
+  leadershipTrust     Int
+  environmentCalm     Int
+  optionalNote        String?  @db.Text
+  overallIndex        Float
+  createdAt           DateTime @default(now())
+
+  @@index([createdAt])
+}
