@@ -8,6 +8,69 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum PsychologySubCategory {
+  EDUKASI_MENTAL      // 1A: Edukasi kesehatan mental di lingkungan kerja
+  STRESS_BURNOUT      // 1B: Artikel tentang stres, burnout, dan konflik kerja
+  MOTIVASI_PRODUKTIF  // 1C: Tips meningkatkan motivasi dan produktivitas
+}
+
+enum VoiceSubmissionType {
+  COMPLAINT           // 3A: Formulir penyampaian keluhan secara anonim
+  CRITIQUE_SUGGESTION // 3B: Tempat memberikan kritik dan saran
+}
+
+enum ReviewStatus {
+  PENDING
+  UNDER_REVIEW
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+model PsychologyArticle {
+  id          String                @id @default(cuid())
+  title       String
+  slug        String                @unique
+  subCategory PsychologySubCategory
+  summary     String
+  content     String                @db.Text
+  actionTips  String[]
+  readMinutes Int                   @default(4)
+  published   Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([subCategory, published])
+}
+
+model EmployeeVoiceEntry {
+  id             String              @id @default(cuid())
+  receiptCode    String              @unique // e.g., "SV-4829" for anonymous status tracking
+  type           VoiceSubmissionType
+  categoryTag    String              // "Beban Kerja" | "Komunikasi" | "Fasilitas" | "Budaya Kerja"
+  message        String              @db.Text
+  isPublicOnWall Boolean             @default(true)
+  status         ReviewStatus        @default(PENDING)
+  adminResponse  String?             @db.Text
+  upvotes        Int                 @default(0)
+  createdAt      DateTime            @default(now())
+  reviewedAt     DateTime?
+
+  @@index([type, status, createdAt])
+}
+
+model WorkComfortPulse {
+  id                  String   @id @default(cuid())
+  overallComfort      Int      // 1-5
+  workloadBalance     Int      // 1-5
+  psychologicalSafety Int      // 1-5
+  teamSupport         Int      // 1-5
+  departmentTag       String   @default("Umum")
+  environmentNote     String?  @db.Text
+  createdAt           DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 model Article {
   id             String   @id @default(cuid())
   slug           String   @unique

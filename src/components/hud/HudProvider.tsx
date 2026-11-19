@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
+import { sanctuaryAudio } from "@/lib/audio/sanctuaryAudio";
 
 export type SanctuaryZone =
   | "hub"
@@ -154,7 +155,7 @@ export const SANCTUARY_STATIONS: Record<StationId, SanctuaryStation> = {
     href: "/",
     ctaLabel: "Recenter Office View",
     dialogue:
-      "Welcome to Aether Office! I'm Samir at Reception. Walk through the West Lounge or cross the glass corridor to the East Studio—press [F] near any colleague to chat!",
+      "Welcome to MindSanctuary! Walk through the retreat paths or use the top-right Signpost to jump directly to any station.",
   },
 };
 
@@ -178,6 +179,9 @@ export interface ThemeTokens {
   roomRugEast: string;
 }
 
+const ONBOARDING_STORAGE_KEY = "mindsanctuary_onboarded";
+const AUDIO_MUTED_STORAGE_KEY = "mindsanctuary_audio_muted";
+
 interface HudContextValue {
   activeZone: SanctuaryZone;
   xp: number;
@@ -196,6 +200,13 @@ interface HudContextValue {
   openStationDialogue: (stationId: StationId) => void;
   closeStationDialogue: () => void;
   lastInteractedStation: StationId | null;
+  isHintModalOpen: boolean;
+  setIsHintModalOpen: (open: boolean) => void;
+  completeOnboarding: () => void;
+  isSignpostOpen: boolean;
+  setIsSignpostOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isAudioMuted: boolean;
+  toggleAudioMute: () => void;
 }
 
 const HudContext = createContext<HudContextValue | null>(null);
@@ -232,6 +243,9 @@ export function HudProvider({
     useState<StationId | null>(null);
   const [lastInteractedStation, setLastInteractedStation] =
     useState<StationId | null>(null);
+  const [isHintModalOpen, setIsHintModalOpen] = useState<boolean>(false);
+  const [isSignpostOpen, setIsSignpostOpen] = useState<boolean>(false);
+  const [isAudioMuted, setIsAudioMuted] = useState<boolean>(false);
 
   useEffect(() => {
     const styles = getComputedStyle(document.documentElement);
@@ -254,12 +268,27 @@ export function HudProvider({
       roomRugWest: readCssVariable(styles, "--room-rug-west"),
       roomRugEast: readCssVariable(styles, "--room-rug-east"),
     });
+
+    try {
+      const onboarded = window.localStorage.getItem(ONBOARDING_STORAGE_KEY);
+      if (!onboarded && !window.location.pathname.startsWith("/admin")) {
+        setIsHintModalOpen(true);
+      }
+      const savedMute = window.localStorage.getItem(AUDIO_MUTED_STORAGE_KEY);
+      if (savedMute === "true") {
+        setIsAudioMuted(true);
+        sanctuaryAudio.setMuted(true);
+      }
+    } catch {
+      // Ignore storage access errors in restricted frames
+    }
   }, []);
 
   useEffect(() => {
     if (activeZone !== "hub") {
       setActiveDialogueStationId(null);
       setNearbyStationId(null);
+      setIsSignpostOpen(false);
     }
   }, [activeZone]);
 
@@ -278,6 +307,34 @@ export function HudProvider({
 
   const closeStationDialogue = useCallback(() => {
     setActiveDialogueStationId(null);
+  }, []);
+
+  const completeOnboarding = useCallback(() => {
+    try {
+      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
+    } catch {
+      // Ignore storage errors
+    }
+    sanctuaryAudio.unlockAndStart();
+    sanctuaryAudio.playZoneChime();
+    setIsHintModalOpen(false);
+  }, []);
+
+  const toggleAudioMute = useCallback(() => {
+    setIsAudioMuted((prev) => {
+      const next = !prev;
+      sanctuaryAudio.setMuted(next);
+      if (!next) {
+        sanctuaryAudio.unlockAndStart();
+        sanctuaryAudio.playZoneChime();
+      }
+      try {
+        window.localStorage.setItem(AUDIO_MUTED_STORAGE_KEY, String(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
   }, []);
 
   const level = Math.floor(xp / 100) + 1;
@@ -303,6 +360,13 @@ export function HudProvider({
       openStationDialogue,
       closeStationDialogue,
       lastInteractedStation,
+      isHintModalOpen,
+      setIsHintModalOpen,
+      completeOnboarding,
+      isSignpostOpen,
+      setIsSignpostOpen,
+      isAudioMuted,
+      toggleAudioMute,
     }),
     [
       activeZone,
@@ -320,6 +384,11 @@ export function HudProvider({
       openStationDialogue,
       closeStationDialogue,
       lastInteractedStation,
+      isHintModalOpen,
+      completeOnboarding,
+      isSignpostOpen,
+      isAudioMuted,
+      toggleAudioMute,
     ]
   );
 

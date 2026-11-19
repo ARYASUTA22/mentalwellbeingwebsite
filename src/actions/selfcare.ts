@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getSafeEnv } from "@/env";
 import { generateWellnessRecommendation } from "@/lib/ai";
-import { prisma } from "@/lib/prisma";
+import { prisma, withDbTimeout } from "@/lib/prisma";
 import { getPsychologyArticles } from "@/actions/psychology";
 import {
   breathingSessionSchema,
@@ -65,13 +65,15 @@ export async function getSelfCareOverview(): Promise<{
   const env = getSafeEnv();
   if (env.hasDatabase) {
     try {
-      const [quests, sessions] = await Promise.all([
-        prisma.dailyQuest.findMany({ orderBy: { createdAt: "asc" } }),
-        prisma.selfCareSession.findMany({
-          orderBy: { createdAt: "desc" },
-          take: 6,
-        }),
-      ]);
+      const [quests, sessions] = await withDbTimeout(
+        Promise.all([
+          prisma.dailyQuest.findMany({ orderBy: { createdAt: "asc" } }),
+          prisma.selfCareSession.findMany({
+            orderBy: { createdAt: "desc" },
+            take: 6,
+          }),
+        ])
+      );
 
       if (quests.length > 0 || sessions.length > 0) {
         const serializedQuests: SerializedQuest[] =
@@ -156,14 +158,16 @@ export async function logBreathingSessionAction(input: {
 
   if (env.hasDatabase) {
     try {
-      await prisma.selfCareSession.create({
-        data: {
-          sessionType: "BREATHING",
-          durationSec: parsed.data.durationSec,
-          cyclesCount: parsed.data.cyclesCount,
-          xpEarned,
-        },
-      });
+      await withDbTimeout(
+        prisma.selfCareSession.create({
+          data: {
+            sessionType: "BREATHING",
+            durationSec: parsed.data.durationSec,
+            cyclesCount: parsed.data.cyclesCount,
+            xpEarned,
+          },
+        })
+      );
     } catch {
       // Allow UI completion smoothly when offline
     }
@@ -206,15 +210,17 @@ export async function submitEmotionCheckinAction(input: {
   const env = getSafeEnv();
   if (env.hasDatabase) {
     try {
-      await prisma.selfCareSession.create({
-        data: {
-          sessionType: "EMOTION_CHECKIN",
-          moodLabel: parsed.data.moodLabel,
-          stressLevel: parsed.data.stressLevel,
-          aiTip: recommendation.groundingAction,
-          xpEarned,
-        },
-      });
+      await withDbTimeout(
+        prisma.selfCareSession.create({
+          data: {
+            sessionType: "EMOTION_CHECKIN",
+            moodLabel: parsed.data.moodLabel,
+            stressLevel: parsed.data.stressLevel,
+            aiTip: recommendation.groundingAction,
+            xpEarned,
+          },
+        })
+      );
     } catch {
       // Allow graceful local preview
     }
@@ -237,13 +243,15 @@ export async function toggleDailyQuestAction(input: {
   const env = getSafeEnv();
   if (env.hasDatabase) {
     try {
-      await prisma.dailyQuest.update({
-        where: { id: parsed.data.questId },
-        data: {
-          isCompleted: parsed.data.isCompleted,
-          completedAt: parsed.data.isCompleted ? new Date() : null,
-        },
-      });
+      await withDbTimeout(
+        prisma.dailyQuest.update({
+          where: { id: parsed.data.questId },
+          data: {
+            isCompleted: parsed.data.isCompleted,
+            completedAt: parsed.data.isCompleted ? new Date() : null,
+          },
+        })
+      );
     } catch {
       // Fallback quests are handled client-side if not stored in DB
     }

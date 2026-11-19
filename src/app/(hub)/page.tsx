@@ -1,24 +1,23 @@
-import { getPsychologyArticles } from "@/actions/psychology";
+import { getPsychologySubCategoryArticles } from "@/actions/psychology";
 import { getSelfCareOverview } from "@/actions/selfcare";
-import { getVoiceOverview } from "@/actions/voice";
+import { getEmployeeVoiceAndPulseData } from "@/actions/voice";
 import { SanctuaryWorldCanvas } from "@/components/canvas/SanctuaryWorldCanvas";
 
 export const dynamic = "force-dynamic";
 
 export default async function HubHomePage() {
-  const [articles, selfCare, voice] = await Promise.all([
-    getPsychologyArticles(),
+  const [psychologyArticles, selfCare, voiceAndPulse] = await Promise.all([
+    getPsychologySubCategoryArticles(),
     getSelfCareOverview(),
-    getVoiceOverview(),
+    getEmployeeVoiceAndPulseData(),
   ]);
 
   return (
     <SanctuaryWorldCanvas
-      articles={articles}
+      psychologyArticles={psychologyArticles}
       quests={selfCare.quests}
-      submissions={voice.submissions}
-      averageComfortIndex={voice.averageComfortIndex}
-      evaluationCount={voice.evaluations.length}
+      voiceEntries={voiceAndPulse.entries}
+      comfortPulses={voiceAndPulse.pulses}
     />
   );
 }

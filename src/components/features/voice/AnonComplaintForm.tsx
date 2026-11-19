@@ -11,10 +11,15 @@ import {
   VOICE_CATEGORIES,
   VOICE_SUBMISSION_TYPES,
   type ScrubVoiceResult,
+  type SerializedVoiceSubmission,
 } from "@/lib/validations/voice";
 import { clsx } from "clsx";
 
-export function AnonComplaintForm() {
+export function AnonComplaintForm({
+  onSubmissionCreated,
+}: {
+  onSubmissionCreated?: (submission: SerializedVoiceSubmission) => void;
+} = {}) {
   const router = useRouter();
   const { addXp } = useHud();
   const [submissionType, setSubmissionType] =
@@ -81,6 +86,7 @@ export function AnonComplaintForm() {
       });
 
       if (res.ok) {
+        onSubmissionCreated?.(res.submission);
         setRawContent("");
         setPreview(null);
         addXp(30);

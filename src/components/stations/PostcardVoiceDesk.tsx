@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Mail, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { AnonComplaintForm } from "@/components/features/voice/AnonComplaintForm";
@@ -21,6 +21,35 @@ export function PostcardVoiceDesk({
   evaluationCount,
   onClose,
 }: PostcardVoiceDeskProps) {
+  const [localSubmissions, setLocalSubmissions] =
+    useState<SerializedVoiceSubmission[]>(submissions);
+  const [localAvgIndex, setLocalAvgIndex] =
+    useState<number>(averageComfortIndex);
+  const [localEvalCount, setLocalEvalCount] = useState<number>(evaluationCount);
+
+  useEffect(() => {
+    setLocalSubmissions(submissions);
+  }, [submissions]);
+
+  useEffect(() => {
+    setLocalAvgIndex(averageComfortIndex);
+    setLocalEvalCount(evaluationCount);
+  }, [averageComfortIndex, evaluationCount]);
+
+  const handleSubmissionCreated = (newSub: SerializedVoiceSubmission) => {
+    setLocalSubmissions((prev) => [newSub, ...prev]);
+  };
+
+  const handleEvaluationCreated = (overallIndex: number) => {
+    setLocalEvalCount((prevCount) => {
+      const nextCount = prevCount + 1;
+      setLocalAvgIndex((prevAvg) =>
+        Number(((prevAvg * prevCount + overallIndex) / nextCount).toFixed(2))
+      );
+      return nextCount;
+    });
+  };
+
   return (
     <div
       role="dialog"
@@ -65,14 +94,15 @@ export function PostcardVoiceDesk({
 
         <div className="grid grid-cols-1 gap-6 overflow-y-auto p-4 sm:p-6 lg:grid-cols-12">
           <div className="space-y-6 lg:col-span-7">
-            <AnonComplaintForm />
+            <AnonComplaintForm onSubmissionCreated={handleSubmissionCreated} />
             <ComfortEvalSurvey
-              averageComfortIndex={averageComfortIndex}
-              evaluationCount={evaluationCount}
+              averageComfortIndex={localAvgIndex}
+              evaluationCount={localEvalCount}
+              onEvaluationCreated={handleEvaluationCreated}
             />
           </div>
           <div className="lg:col-span-5">
-            <FeedbackWall initialSubmissions={submissions} />
+            <FeedbackWall initialSubmissions={localSubmissions} />
           </div>
         </div>
       </motion.div>

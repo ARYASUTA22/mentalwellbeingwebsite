@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { getSafeEnv } from "@/env";
-import { prisma } from "@/lib/prisma";
+import { prisma, withDbTimeout } from "@/lib/prisma";
+import {
+  ensureSanctuarySeeded,
+  getRuntimeSanctuaryStore,
+  type PsychologySubCategoryLiteral,
+  type SerializedPsychologyArticle,
+} from "@/lib/seed";
 import {
   articleFilterSchema,
   completeReadingQuestSchema,
@@ -85,6 +91,54 @@ const FALLBACK_ARTICLES: SerializedArticle[] = [
   },
 ];
 
+/**
+ * Fetches PsychologyArticle records for Stations 1A (EDUKASI_MENTAL), 1B (STRESS_BURNOUT),
+ * and 1C (MOTIVASI_PRODUKTIF), auto-seeding Bahasa Indonesia articles if needed.
+ */
+export async function getPsychologySubCategoryArticles(
+  subCategory?: PsychologySubCategoryLiteral
+): Promise<SerializedPsychologyArticle[]> {
+  await ensureSanctuarySeeded();
+  const env = getSafeEnv();
+
+  if (env.hasDatabase) {
+    try {
+      const rows = await withDbTimeout(
+        prisma.psychologyArticle.findMany({
+          where: {
+            published: true,
+            ...(subCategory ? { subCategory } : {}),
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      );
+
+      if (rows.length > 0) {
+        return rows.map((row) => ({
+          id: row.id,
+          title: row.title,
+          slug: row.slug,
+          subCategory: row.subCategory,
+          summary: row.summary,
+          content: row.content,
+          actionTips: row.actionTips,
+          readMinutes: row.readMinutes,
+          published: row.published,
+          createdAt: row.createdAt.toISOString(),
+          updatedAt: row.updatedAt.toISOString(),
+        }));
+      }
+    } catch {
+      // Fall back to runtime store below
+    }
+  }
+
+  const store = getRuntimeSanctuaryStore();
+  return store.psychologyArticles.filter(
+    (a) => a.published && (!subCategory || a.subCategory === subCategory)
+  );
+}
+
 export async function getPsychologyArticles(rawFilter?: {
   category?: ArticleCategory;
   search?: string;
@@ -97,20 +151,22 @@ export async function getPsychologyArticles(rawFilter?: {
   const env = getSafeEnv();
   if (env.hasDatabase) {
     try {
-      const records = await prisma.article.findMany({
-        where: {
-          ...(filter.category !== "ALL" ? { category: filter.category } : {}),
-          ...(filter.search
-            ? {
-                OR: [
-                  { title: { contains: filter.search, mode: "insensitive" } },
-                  { summary: { contains: filter.search, mode: "insensitive" } },
-                ],
-              }
-            : {}),
-        },
-        orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
-      });
+      const records = await withDbTimeout(
+        prisma.article.findMany({
+          where: {
+            ...(filter.category !== "ALL" ? { category: filter.category } : {}),
+            ...(filter.search
+              ? {
+                  OR: [
+                    { title: { contains: filter.search, mode: "insensitive" } },
+                    { summary: { contains: filter.search, mode: "insensitive" } },
+                  ],
+                }
+              : {}),
+          },
+          orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+        })
+      );
 
       if (records.length > 0) {
         return records.map((row) => ({
@@ -150,21 +206,23 @@ export async function completeArticleReadingAction(input: {
 }): Promise<{ ok: true; xpAwarded: number } | { ok: false; error: string }> {
   const parsed = completeReadingQuestSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: "Invalid article identifier." };
+    return { ok: false, error: "Identitas artikel tidak valid." };
   }
 
   const env = getSafeEnv();
   if (env.hasDatabase) {
     try {
-      await prisma.selfCareSession.create({
-        data: {
-          sessionType: "PSYCHOLOGY_READ",
-          moodLabel: parsed.data.articleSlug,
-          durationSec: 120,
-          cyclesCount: 1,
-          xpEarned: 20,
-        },
-      });
+      await withDbTimeout(
+        prisma.selfCareSession.create({
+          data: {
+            sessionType: "PSYCHOLOGY_READ",
+            moodLabel: parsed.data.articleSlug,
+            durationSec: 120,
+            cyclesCount: 1,
+            xpEarned: 20,
+          },
+        })
+      );
     } catch {
       // Keep UX responsive even if DB is offline
     }

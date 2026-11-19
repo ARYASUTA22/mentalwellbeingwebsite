@@ -20,6 +20,7 @@
   --zone-selfcare: #A3B18A;
   --zone-voice: #E07A5F;
   --shadow-ambient: rgba(44, 34, 30, 0.22);
+  --shadow-cloud: rgba(35, 45, 30, 0.1);
   --border-ink: 3px solid #2C221E;
   --shadow-cartoon: 6px 6px 0px #2C221E;
   --shadow-cartoon-sm: 3px 3px 0px #2C221E;
@@ -78,6 +79,7 @@
     background-color: var(--bg-paper-cream);
     color: var(--ink-charcoal);
     border: var(--border-ink);
+    border-radius: 20px 18px 22px 16px;
     box-shadow: var(--shadow-cartoon);
   }
 
@@ -87,6 +89,7 @@
     background-color: var(--bg-paper-aged);
     color: var(--ink-charcoal);
     border: var(--border-ink);
+    border-radius: 20px 18px 22px 16px;
     box-shadow: var(--shadow-cartoon);
   }
 

@@ -166,9 +166,11 @@ function CartoonExpressionFace({
 export function ComfortEvalSurvey({
   averageComfortIndex,
   evaluationCount,
+  onEvaluationCreated,
 }: {
   averageComfortIndex: number;
   evaluationCount: number;
+  onEvaluationCreated?: (overallIndex: number) => void;
 }) {
   const router = useRouter();
   const { addXp } = useHud();
@@ -201,6 +203,7 @@ export function ComfortEvalSurvey({
       });
 
       if (res.ok) {
+        onEvaluationCreated?.(res.evaluation.overallIndex);
         addXp(35);
         setOptionalNote("");
         setSubmittedMsg(

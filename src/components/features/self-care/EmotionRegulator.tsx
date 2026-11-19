@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import Link from "next/link";
-import { Activity, ArrowUpRight, BrainCircuit, Sparkles } from "lucide-react";
+import { Activity, BrainCircuit, Sparkles } from "lucide-react";
 import { submitEmotionCheckinAction } from "@/actions/selfcare";
 import { HudCard } from "@/components/hud/HudCard";
 import { useHud } from "@/components/hud/HudProvider";
@@ -372,21 +371,6 @@ export function EmotionRegulator({
           <p className="text-[11px] font-semibold text-ink-muted">
             {recommendation.rationale}
           </p>
-
-          {recommendation.recommendedSlugs.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {recommendation.recommendedSlugs.map((slug) => (
-                <Link
-                  key={slug}
-                  href={`/psychology?article=${slug}`}
-                  className="cartoon-btn inline-flex items-center gap-1 rounded-lg bg-zone-psychology px-2.5 py-1 text-[11px] font-bold text-ink-charcoal"
-                >
-                  <span>Read: {slug}</span>
-                  <ArrowUpRight className="h-3 w-3" />
-                </Link>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </HudCard>
